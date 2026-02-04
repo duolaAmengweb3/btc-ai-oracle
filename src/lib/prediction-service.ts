@@ -95,7 +95,7 @@ export async function createHourlyPrediction() {
   const predictionId = generatePredictionId();
 
   // 检查是否已存在
-  const existing = db.select().from(predictions).where(eq(predictions.id, predictionId)).get();
+  const [existing] = await db.select().from(predictions).where(eq(predictions.id, predictionId));
   if (existing) {
     console.log(`Prediction ${predictionId} already exists`);
     return { id: predictionId, status: 'exists' };
@@ -210,25 +210,24 @@ export async function settleExpiredWindows() {
   console.log('Checking for expired windows to settle...');
 
   // 获取所有预测
-  const allPredictions = db.select().from(predictions).all();
+  const allPredictions = await db.select().from(predictions);
 
   for (const prediction of allPredictions) {
     const predictionTime = new Date(prediction.createdAt);
 
     // 获取该预测的窗口
-    const windows = db.select().from(predictionWindows)
-      .where(eq(predictionWindows.predictionId, prediction.id))
-      .all();
+    const windows = await db.select().from(predictionWindows)
+      .where(eq(predictionWindows.predictionId, prediction.id));
 
     for (const window of windows) {
       // 检查是否已结算
-      const existingSettlement = db.select().from(settlements)
+      const [existingSettlement] = await db.select().from(settlements)
         .where(
           and(
             eq(settlements.predictionId, prediction.id),
             eq(settlements.windowType, window.windowType)
           )
-        ).get();
+        );
 
       if (existingSettlement) continue;
 
@@ -271,24 +270,24 @@ export async function settleExpiredWindows() {
           console.log(`Settled ${prediction.id} ${window.windowType}: ${actualDirection} (${actualReturnPct.toFixed(2)}%) - ${isHit ? 'HIT' : 'MISS'}`);
 
           // 同时结算每个 AI 的预测
-          const aiOutputsForWindow = db.select().from(aiOutputs)
+          const aiOutputsForWindow = await db.select().from(aiOutputs)
             .where(
               and(
                 eq(aiOutputs.predictionId, prediction.id),
                 eq(aiOutputs.windowType, window.windowType)
               )
-            ).all();
+            );
 
           for (const aiOutput of aiOutputsForWindow) {
             // 检查是否已结算
-            const existingAISettlement = db.select().from(aiSettlements)
+            const [existingAISettlement] = await db.select().from(aiSettlements)
               .where(
                 and(
                   eq(aiSettlements.predictionId, prediction.id),
                   eq(aiSettlements.windowType, window.windowType),
                   eq(aiSettlements.aiName, aiOutput.aiName)
                 )
-              ).get();
+              );
 
             if (existingAISettlement) continue;
 
@@ -319,11 +318,10 @@ export async function settleExpiredWindows() {
 }
 
 // 获取最新预测
-export function getLatestPrediction() {
-  const prediction = db.select().from(predictions)
+export async function getLatestPrediction() {
+  const [prediction] = await db.select().from(predictions)
     .orderBy(desc(predictions.createdAt))
-    .limit(1)
-    .get();
+    .limit(1);
 
   if (!prediction) return null;
 
@@ -331,28 +329,23 @@ export function getLatestPrediction() {
 }
 
 // 获取指定预测
-export function getPredictionById(id: string) {
-  const prediction = db.select().from(predictions)
-    .where(eq(predictions.id, id))
-    .get();
+export async function getPredictionById(id: string) {
+  const [prediction] = await db.select().from(predictions)
+    .where(eq(predictions.id, id));
 
   if (!prediction) return null;
 
-  const windows = db.select().from(predictionWindows)
-    .where(eq(predictionWindows.predictionId, id))
-    .all();
+  const windows = await db.select().from(predictionWindows)
+    .where(eq(predictionWindows.predictionId, id));
 
-  const aiOutputsData = db.select().from(aiOutputs)
-    .where(eq(aiOutputs.predictionId, id))
-    .all();
+  const aiOutputsData = await db.select().from(aiOutputs)
+    .where(eq(aiOutputs.predictionId, id));
 
-  const settlementsData = db.select().from(settlements)
-    .where(eq(settlements.predictionId, id))
-    .all();
+  const settlementsData = await db.select().from(settlements)
+    .where(eq(settlements.predictionId, id));
 
-  const marketSnapshot = db.select().from(marketDataSnapshots)
-    .where(eq(marketDataSnapshots.predictionId, id))
-    .get();
+  const [marketSnapshot] = await db.select().from(marketDataSnapshots)
+    .where(eq(marketDataSnapshots.predictionId, id));
 
   // 组织AI输出
   const aiMap: Record<string, any> = {};
@@ -417,12 +410,11 @@ export function getPredictionById(id: string) {
 }
 
 // 获取历史预测列表
-export function getPredictionHistory(limit: number = 24, offset: number = 0) {
-  const allPredictions = db.select().from(predictions)
+export async function getPredictionHistory(limit: number = 24, offset: number = 0) {
+  const allPredictions = await db.select().from(predictions)
     .orderBy(desc(predictions.createdAt))
     .limit(limit)
-    .offset(offset)
-    .all();
+    .offset(offset);
 
   return allPredictions.map(p => ({
     id: p.id,
@@ -434,12 +426,12 @@ export function getPredictionHistory(limit: number = 24, offset: number = 0) {
 }
 
 // 获取统计数据
-export function getStats(days: number = 7) {
+export async function getStats(days: number = 7) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
 
-  const allSettlements = db.select().from(settlements).all()
-    .filter(s => new Date(s.settledAt) >= cutoff);
+  const allSettlementsRaw = await db.select().from(settlements);
+  const allSettlements = allSettlementsRaw.filter(s => new Date(s.settledAt) >= cutoff);
 
   const stats: Record<string, { total: number; hits: number; avgConfidence: number }> = {
     '1h': { total: 0, hits: 0, avgConfidence: 0 },
@@ -449,7 +441,7 @@ export function getStats(days: number = 7) {
 
   // 获取对应的置信度
   const confidenceMap: Record<string, number> = {};
-  const windows = db.select().from(predictionWindows).all();
+  const windows = await db.select().from(predictionWindows);
   for (const w of windows) {
     confidenceMap[`${w.predictionId}-${w.windowType}`] = w.confidence;
   }
@@ -483,12 +475,12 @@ export function getStats(days: number = 7) {
 }
 
 // 获取各 AI 模型的准确率统计
-export function getAIStats(days: number = 7) {
+export async function getAIStats(days: number = 7) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
 
-  const allAISettlements = db.select().from(aiSettlements).all()
-    .filter(s => new Date(s.settledAt) >= cutoff);
+  const allAISettlementsRaw = await db.select().from(aiSettlements);
+  const allAISettlements = allAISettlementsRaw.filter(s => new Date(s.settledAt) >= cutoff);
 
   // 按 AI 名称和窗口类型分组统计
   const aiStats: Record<string, Record<string, { total: number; hits: number; totalConfidence: number }>> = {};
