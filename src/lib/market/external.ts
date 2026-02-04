@@ -11,11 +11,8 @@ function getProxyDispatcher() {
 
   return new ProxyAgent({
     uri: proxy,
-    // 增加连接超时和保活设置
     connect: {
       timeout: 30000,
-      keepAlive: true,
-      keepAliveTimeout: 30000,
     },
   });
 }

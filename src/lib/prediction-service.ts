@@ -195,11 +195,11 @@ export async function generateOnDemandPrediction() {
     aiOutputs: aiResults.filter(r => r.success).map(r => ({
       name: r.name,
       windows: {
-        '1h': r.prediction?.windows['1h'],
-        '4h': r.prediction?.windows['4h'],
-        '24h': r.prediction?.windows['24h'],
+        '1h': r.data?.windows['1h'],
+        '4h': r.data?.windows['4h'],
+        '24h': r.data?.windows['24h'],
       },
-      reasoning: r.prediction?.reasoning,
+      reasoning: r.data?.reasoning,
     })),
   };
 }

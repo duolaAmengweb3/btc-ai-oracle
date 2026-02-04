@@ -116,6 +116,9 @@ interface Prediction {
   createdAt: string;
   btcPrice: number;
   consensusStrength: number;
+  dataHealthGrade?: string;
+  dataHealthReason?: string;
+  divergenceSummary?: string[] | string;
   windows: Record<string, WindowData>;
   aiOutputs: {
     name: string;
@@ -843,8 +846,8 @@ function MarketOverview({ market }: { market: { binance: MarketData; external: E
     { label: '24H 波动率', value: `${binance.realizedVol24h?.toFixed(1) || '--'}%`, color: 'text-[var(--color-primary)]' },
     { label: '市值', value: external.coinGecko ? `$${(external.coinGecko.marketCap / 1e12).toFixed(2)}T` : '--', color: 'text-[var(--color-text-primary)]' },
     { label: 'ATH 距离', value: external.coinGecko ? `${external.coinGecko.athChangePercentage.toFixed(1)}%` : '--', color: 'text-[var(--color-bearish)]' },
-    { label: '7D 涨跌', value: external.coinGecko ? `${external.coinGecko.priceChange7d >= 0 ? '+' : ''}${external.coinGecko.priceChange7d.toFixed(1)}%` : '--', color: external.coinGecko?.priceChange7d >= 0 ? 'text-[var(--color-bullish)]' : 'text-[var(--color-bearish)]' },
-    { label: '30D 涨跌', value: external.coinGecko ? `${external.coinGecko.priceChange30d >= 0 ? '+' : ''}${external.coinGecko.priceChange30d.toFixed(1)}%` : '--', color: external.coinGecko?.priceChange30d >= 0 ? 'text-[var(--color-bullish)]' : 'text-[var(--color-bearish)]' },
+    { label: '7D 涨跌', value: external.coinGecko?.priceChange7d != null ? `${external.coinGecko.priceChange7d >= 0 ? '+' : ''}${external.coinGecko.priceChange7d.toFixed(1)}%` : '--', color: (external.coinGecko?.priceChange7d ?? 0) >= 0 ? 'text-[var(--color-bullish)]' : 'text-[var(--color-bearish)]' },
+    { label: '30D 涨跌', value: external.coinGecko?.priceChange30d != null ? `${external.coinGecko.priceChange30d >= 0 ? '+' : ''}${external.coinGecko.priceChange30d.toFixed(1)}%` : '--', color: (external.coinGecko?.priceChange30d ?? 0) >= 0 ? 'text-[var(--color-bullish)]' : 'text-[var(--color-bearish)]' },
     { label: 'ATH 价格', value: external.coinGecko ? `$${external.coinGecko.ath.toLocaleString()}` : '--', color: 'text-[var(--color-primary)]' },
   ];
 
